@@ -1,0 +1,8 @@
+[workspace]
+
+members = [
+    "cortex",
+
+    "audio",
+    "speech"
+]
