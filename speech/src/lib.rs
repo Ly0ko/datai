@@ -6,6 +6,7 @@ use std::sync::mpsc::{channel, Receiver, Sender};
 enum SpeechState {
     Listening,
     Ready,
+    Complete,
 }
 
 pub struct Speech {
@@ -53,7 +54,7 @@ impl Speech {
         (graph_name, scorer_name)
     }
 
-    pub fn start_recognition(&mut self, wake_word: String) {
+    pub fn start_recognition(&mut self, wake_word: String, text_tx: Sender<String>) {
         let input_device = Audio::new();
 
         let (tx, rc) = channel();
@@ -63,17 +64,22 @@ impl Speech {
             input_device.open_input_stream(tx1);
         });
 
-        self.start_stream(wake_word, rc);
+        self.start_stream(wake_word, text_tx, rc);
     }
 
-    fn start_stream(&mut self, wake_word: String, rc: Receiver<Vec<i16>>) {
+    fn start_stream(
+        &mut self,
+        wake_word: String,
+        text_tx: Sender<String>,
+        buffer_rc: Receiver<Vec<i16>>,
+    ) {
         let mut stream = self
             .model
             .create_stream()
             .expect("Failed to create model stream");
 
         loop {
-            let buffer = rc.recv().unwrap();
+            let buffer = buffer_rc.recv().unwrap();
             let buffer_slice: &[i16] = buffer.as_ref();
             stream.feed_audio(buffer_slice);
             let decoded = stream.intermediate_decode();
@@ -88,9 +94,19 @@ impl Speech {
                     SpeechState::Ready => {
                         println!("{}", text);
                     }
+                    SpeechState::Complete => {
+                        break;
+                    }
                 },
                 Err(err) => eprintln!("{}", err),
             }
+        }
+
+        if let SpeechState::Complete = self.state {
+            let text = stream.finish().unwrap();
+            text_tx.send(text).unwrap();
+            self.state = SpeechState::Listening;
+            self.start_stream(wake_word, text_tx, buffer_rc);
         }
     }
 }
