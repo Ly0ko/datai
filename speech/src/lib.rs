@@ -3,8 +3,14 @@ use deepspeech::Model;
 use std::path::Path;
 use std::sync::mpsc::{channel, Sender};
 
+enum SpeechState {
+    Listening,
+    Ready
+}
+
 pub struct Speech {
     model: Model,
+    state: SpeechState
 }
 
 impl Speech {
@@ -17,7 +23,9 @@ impl Speech {
             model.enable_external_scorer(&scorer).unwrap();
         }
 
-        Speech { model }
+        let state = SpeechState::Listening;
+
+        Speech { model, state }
     }
 
     fn get_models() -> (Box<Path>, Option<Box<Path>>) {
@@ -46,7 +54,7 @@ impl Speech {
     }
 
     pub fn start_recognition(&mut self) {
-        let mut model = self
+        let mut stream = self
             .model
             .create_stream()
             .expect("Failed to create model stream");
@@ -63,14 +71,22 @@ impl Speech {
         loop {
             let buffer = rc.recv().unwrap();
             let buffer_slice: &[i16] = buffer.as_ref();
-            model.feed_audio(&buffer_slice);
-            let decoded = model.intermediate_decode();
+            stream.feed_audio(buffer_slice);
+            let decoded = stream.intermediate_decode();
 
             match decoded {
                 Ok(text) => {
-                    if text.chars().count() > 0 {
-                        println!("{}", text);
+                    match self.state {
+                        SpeechState::Listening => {
+                            if text.contains("computer") {
+                                self.state = SpeechState::Ready;
+                            }
+                        },
+                        SpeechState::Ready => {
+                            println!("{}", text);
+                        }
                     }
+                    
                 }
                 Err(err) => eprintln!("{}", err),
             }
