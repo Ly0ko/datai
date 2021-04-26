@@ -8,4 +8,4 @@ edition = "2018"
 
 [dependencies]
 audio = { path = "../audio" }
-deepspeech = { path="C:/code/deepspeech-rs" }
+deepspeech = "0.9.0"

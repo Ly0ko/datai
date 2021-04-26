@@ -1,50 +1,41 @@
-use portaudio as pa;
-use std::sync::mpsc::Sender;
+use std::sync::mpsc;
 
-pub struct InputSettings {
-    pub channels: i32,
-    pub sample_rate: f64,
-    pub frames_per_buffer: u32,
-}
+use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 
 pub struct Audio {
-    pa: pa::PortAudio,
-    input_settings: pa::InputStreamSettings<i16>,
+    device: cpal::Device
 }
 
 impl Audio {
-    pub fn new(input_settings: InputSettings) -> Audio {
-        let pa = pa::PortAudio::new().expect("Unable to init PortAudio");
+    pub fn new() -> Audio{
+        let host = cpal::default_host();
+        let device = host.default_input_device().expect("Unable to find input device");
 
-        let input_settings = pa
-            .default_input_stream_settings(
-                input_settings.channels,
-                input_settings.sample_rate,
-                input_settings.frames_per_buffer,
-            )
-            .unwrap();
-
-        Audio { pa, input_settings }
+        Audio { device }
     }
 
-    pub fn open_input_stream(&self, tx: Sender<&'static [i16]>) {
-        let process_audio = move |pa::InputStreamCallbackArgs { buffer, .. }| match tx.send(buffer)
-        {
-            Ok(_) => pa::Continue,
-            Err(err) => {
-                eprintln!("{}", err);
-                pa::Complete
-            }
-        };
+    pub fn open_input_stream(&self, tx: mpsc::Sender<Vec<i16>>) {
+        let mut supported_configs_range = self.device.supported_input_configs()
+            .expect("Unable to get supported input configs");
 
-        let mut input_stream = self
-            .pa
-            .open_non_blocking_stream(self.input_settings, process_audio)
-            .expect("Unable to create audio stream");
+        let config = supported_configs_range.next()
+            .expect("No support configs")
+            .with_sample_rate(cpal::SampleRate(16000));
+        
+            let stream = self.device.build_input_stream(
+                &config.into(),
+                move |data: &[i16], _: &cpal::InputCallbackInfo| {
+                    let buffer = data.to_vec();
+                    tx.send(buffer).unwrap();
+                },
+                move |err| {
+                    eprint!("{}", err);
+                },
+            ).unwrap();
 
-        input_stream.start().expect("Unable to start audio stream");
+            stream.play().unwrap();
 
-        while let true = input_stream.is_active().unwrap() {}
+            loop {}
     }
 }
 

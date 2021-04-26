@@ -1,4 +1,4 @@
-use audio::{Audio, InputSettings};
+use audio::{Audio, };
 use deepspeech::Model;
 use std::path::Path;
 use std::sync::mpsc::{channel, Sender};
@@ -51,13 +51,7 @@ impl Speech {
             .create_stream()
             .expect("Failed to create model stream");
 
-        let input_settings = InputSettings {
-            channels: 1,
-            sample_rate: 16000.0,
-            frames_per_buffer: 1024,
-        };
-
-        let input_device = Audio::new(input_settings);
+        let input_device = Audio::new();
 
         let (tx, rc) = channel();
         let tx1 = Sender::clone(&tx);
@@ -68,7 +62,8 @@ impl Speech {
 
         loop {
             let buffer = rc.recv().unwrap();
-            model.feed_audio(&buffer);
+            let buffer_slice: &[i16] = buffer.as_ref();
+            model.feed_audio(&buffer_slice);
             let decoded = model.intermediate_decode();
 
             match decoded {
