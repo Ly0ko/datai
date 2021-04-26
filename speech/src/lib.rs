@@ -53,7 +53,7 @@ impl Speech {
         (graph_name, scorer_name)
     }
 
-    pub fn start_recognition(&mut self) {
+    pub fn start_recognition(&mut self, wake_word: String) {
         let mut stream = self
             .model
             .create_stream()
@@ -78,7 +78,7 @@ impl Speech {
                 Ok(text) => {
                     match self.state {
                         SpeechState::Listening => {
-                            if text.contains("computer") {
+                            if text.contains(&wake_word) {
                                 self.state = SpeechState::Ready;
                             }
                         },
