@@ -1,4 +1,7 @@
-use std::{sync::mpsc::channel, thread};
+use std::{
+    sync::mpsc::{channel, Sender},
+    thread,
+};
 
 use speech::Speech;
 
@@ -7,11 +10,11 @@ fn main() {
 
     thread::spawn(move || {
         let mut speech = Speech::new();
-        speech.start_recognition(String::from("computer"), tx);
+        speech.start_recognition(String::from("computer"), Sender::clone(&tx));
     });
 
     loop {
         let text = rc.recv().unwrap();
-        println!("{}", text);
+        println!("Final text: {}", text);
     }
 }
