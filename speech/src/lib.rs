@@ -1,16 +1,16 @@
-use audio::{Audio, };
+use audio::Audio;
 use deepspeech::Model;
 use std::path::Path;
-use std::sync::mpsc::{channel, Sender};
+use std::sync::mpsc::{channel, Receiver, Sender};
 
 enum SpeechState {
     Listening,
-    Ready
+    Ready,
 }
 
 pub struct Speech {
     model: Model,
-    state: SpeechState
+    state: SpeechState,
 }
 
 impl Speech {
@@ -54,11 +54,6 @@ impl Speech {
     }
 
     pub fn start_recognition(&mut self, wake_word: String) {
-        let mut stream = self
-            .model
-            .create_stream()
-            .expect("Failed to create model stream");
-
         let input_device = Audio::new();
 
         let (tx, rc) = channel();
@@ -68,6 +63,15 @@ impl Speech {
             input_device.open_input_stream(tx1);
         });
 
+        self.start_stream(wake_word, rc);
+    }
+
+    fn start_stream(&mut self, wake_word: String, rc: Receiver<Vec<i16>>) {
+        let mut stream = self
+            .model
+            .create_stream()
+            .expect("Failed to create model stream");
+
         loop {
             let buffer = rc.recv().unwrap();
             let buffer_slice: &[i16] = buffer.as_ref();
@@ -75,29 +79,18 @@ impl Speech {
             let decoded = stream.intermediate_decode();
 
             match decoded {
-                Ok(text) => {
-                    match self.state {
-                        SpeechState::Listening => {
-                            if text.contains(&wake_word) {
-                                self.state = SpeechState::Ready;
-                            }
-                        },
-                        SpeechState::Ready => {
-                            println!("{}", text);
+                Ok(text) => match self.state {
+                    SpeechState::Listening => {
+                        if text.contains(&wake_word) {
+                            self.state = SpeechState::Ready;
                         }
                     }
-                    
-                }
+                    SpeechState::Ready => {
+                        println!("{}", text);
+                    }
+                },
                 Err(err) => eprintln!("{}", err),
             }
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn it_works() {
-        assert_eq!(2 + 2, 4);
     }
 }
