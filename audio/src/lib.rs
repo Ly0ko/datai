@@ -1,28 +1,36 @@
-use std::sync::mpsc;
+use core::time;
+use std::{sync::mpsc, thread};
 
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 
 pub struct Audio {
-    device: cpal::Device
+    device: cpal::Device,
 }
 
 impl Audio {
-    pub fn new() -> Audio{
+    pub fn new() -> Audio {
         let host = cpal::default_host();
-        let device = host.default_input_device().expect("Unable to find input device");
+        let device = host
+            .default_input_device()
+            .expect("Unable to find input device");
 
         Audio { device }
     }
 
     pub fn open_input_stream(&self, tx: mpsc::Sender<Vec<i16>>) {
-        let mut supported_configs_range = self.device.supported_input_configs()
+        let mut supported_configs_range = self
+            .device
+            .supported_input_configs()
             .expect("Unable to get supported input configs");
 
-        let config = supported_configs_range.next()
+        let config = supported_configs_range
+            .next()
             .expect("No support configs")
             .with_sample_rate(cpal::SampleRate(16000));
-        
-            let stream = self.device.build_input_stream(
+
+        let stream = self
+            .device
+            .build_input_stream(
                 &config.into(),
                 move |data: &[i16], _: &cpal::InputCallbackInfo| {
                     let buffer = data.to_vec();
@@ -31,10 +39,13 @@ impl Audio {
                 move |err| {
                     eprint!("{}", err);
                 },
-            ).unwrap();
+            )
+            .unwrap();
 
-            stream.play().unwrap();
+        stream.play().unwrap();
 
-            loop {}
+        loop {
+            thread::sleep(time::Duration::from_millis(10));
+        }
     }
 }

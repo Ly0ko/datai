@@ -92,7 +92,9 @@ impl Speech {
                 Some(ref r) => {
                     let complete = r.recv().unwrap();
                     if complete == true {
-                        timer.stop();
+                        if timer.alive.load(Ordering::SeqCst) {
+                            timer.stop();
+                        }
                         self.state = SpeechState::Complete;
                     }
                 }

@@ -1,3 +1,4 @@
+use core::time;
 use std::{
     sync::mpsc::{channel, Sender},
     thread,
@@ -16,5 +17,6 @@ fn main() {
     loop {
         let text = rc.recv().unwrap();
         println!("Final text: {}", text);
+        thread::sleep(time::Duration::from_millis(10));
     }
 }
