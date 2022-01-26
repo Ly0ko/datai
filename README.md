@@ -1,2 +1,2 @@
 # datai
-random attempt to get speech recognition working in rust
+random (poor) attempt to get speech recognition working in rust
